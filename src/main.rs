@@ -8,8 +8,8 @@ pub enum Commands {
     Decrement,
     Output,
     Input,
-    LoopStart { index: usize },
-    LoopEnd { index: usize },
+    LoopStart,
+    LoopEnd,
 }
 
 pub struct Interpreter {
@@ -18,7 +18,6 @@ pub struct Interpreter {
     commands: Vec<Option<Commands>>,
     input: Vec<u8>,
     output: Vec<u8>,
-    loops: Vec<usize>,
     pointer: usize,
     command_pointer: usize,
 }
@@ -31,7 +30,6 @@ impl Interpreter {
             commands: Vec::new(),
             input: Vec::new(),
             output: Vec::new(),
-            loops: Vec::new(),
             pointer: 0,
             command_pointer: 0,
         }
@@ -40,8 +38,7 @@ impl Interpreter {
     fn parse_to_commands(&mut self, commands_string: &str) -> () {
         self.commands = commands_string
             .chars()
-            .enumerate()
-            .map(|(idx, ch)| -> Option<Commands> {
+            .map(|ch| -> Option<Commands> {
                 match ch {
                     '+' => Some(Commands::Increment),
                     '-' => Some(Commands::Decrement),
@@ -49,8 +46,8 @@ impl Interpreter {
                     '<' => Some(Commands::Back),
                     '.' => Some(Commands::Output),
                     ',' => Some(Commands::Input),
-                    '[' => Some(Commands::LoopStart { index: idx }),
-                    ']' => Some(Commands::LoopEnd { index: idx }),
+                    '[' => Some(Commands::LoopStart),
+                    ']' => Some(Commands::LoopEnd),
                     _ => None,
                 }
             })
@@ -78,8 +75,8 @@ impl Interpreter {
                 Some(Commands::Decrement) => self.decrement(),
                 Some(Commands::Input) => self.input(),
                 Some(Commands::Output) => self.output(),
-                Some(Commands::LoopStart { index }) => (),
-                Some(Commands::LoopEnd { index }) => (),
+                Some(Commands::LoopStart) => self.loop_start(),
+                Some(Commands::LoopEnd) => self.loop_end(),
                 _ => (),
             }
             self.command_pointer += 1;
@@ -127,23 +124,49 @@ impl Interpreter {
         self.output.push(output_char)
     }
 
-    fn loop_start(&mut self, index: usize) {
-        unimplemented!()
+    fn skip_back(&mut self) {
+        let mut count: u8 = 1;
+        let mut op;
+        while count > 0 {
+            self.command_pointer -= 1;
+            op = self.commands[self.command_pointer];
+            match op {
+                Some(Commands::LoopStart) => count -= 1,
+                Some(Commands::LoopEnd) => count += 1,
+                _ => (),
+            }
+        }
     }
 
-    fn loop_end(&mut self, index: usize) {
-        unimplemented!()
+    fn skip_forward(&mut self) {
+        let mut count: u8 = 1;
+        let mut op;
+        while count > 0 {
+            self.command_pointer += 1;
+            op = self.commands[self.command_pointer];
+            match op {
+                Some(Commands::LoopStart) => count += 1,
+                Some(Commands::LoopEnd) => count -= 1,
+                _ => (),
+            }
+        }
     }
-}
 
-fn ez_vec(s: &str) -> Vec<u8> {
-    let mut v = s.to_string().into_bytes();
-    v.push(0);
-    v
+    fn loop_start(&mut self) {
+        if self.memory[self.pointer] == 0 {
+            self.skip_forward()
+        }
+    }
+
+    fn loop_end(&mut self) {
+        if self.memory[self.pointer] > 0 {
+            self.skip_back()
+        }
+    }
 }
 
 fn main() {
-    let mut interpeter = Interpreter::new(10);
-    interpeter.run(",>,>,>,>,<<<<.>.>.>.>.", ez_vec("HELLO"));
-    println!("{}", String::from_utf8(interpeter.get_output()).unwrap());
+    let mut interpreter = Interpreter::new(10);
+    interpreter.run(",>,>,.<.<.", "HEllo".to_string().as_bytes().to_vec());
+    println!("{:?}", interpreter.get_output());
 }

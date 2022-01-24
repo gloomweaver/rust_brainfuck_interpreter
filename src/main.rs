@@ -16,8 +16,11 @@ pub struct Interpreter {
     memory: Vec<u8>,
     size: usize,
     commands: Vec<Option<Commands>>,
-    input: String,
+    input: Vec<u8>,
+    output: Vec<u8>,
+    loops: Vec<usize>,
     pointer: usize,
+    command_pointer: usize,
 }
 
 impl Interpreter {
@@ -26,8 +29,11 @@ impl Interpreter {
             memory: iter::repeat(0 as u8).take(size).collect(),
             size: size,
             commands: Vec::new(),
-            input: String::new(),
+            input: Vec::new(),
+            output: Vec::new(),
+            loops: Vec::new(),
             pointer: 0,
+            command_pointer: 0,
         }
     }
 
@@ -51,29 +57,32 @@ impl Interpreter {
             .collect();
     }
 
-    fn get_input(&mut self, input: &str) -> () {
-        self.input = input.to_string()
+    fn get_input(&mut self, input: Vec<u8>) -> () {
+        self.input = input;
+        self.input.reverse();
     }
 
-    pub fn run(&mut self, commands_string: &str, input: &str) {
+    pub fn get_output(self) -> Vec<u8> {
+        self.output
+    }
+
+    pub fn run(&mut self, commands_string: &str, input: Vec<u8>) {
         self.parse_to_commands(commands_string);
         self.get_input(input);
-        let mut command_pointer: usize = 0;
-        while command_pointer < self.commands.len() {
-            let command = self.commands[command_pointer];
+        while self.command_pointer < self.commands.len() {
+            let command = self.commands[self.command_pointer];
             match command {
                 Some(Commands::Forward) => self.forward(),
                 Some(Commands::Back) => self.back(),
                 Some(Commands::Increment) => self.increment(),
                 Some(Commands::Decrement) => self.decrement(),
-                Some(Commands::Input) => (),
-                Some(Commands::Output) => (),
+                Some(Commands::Input) => self.input(),
+                Some(Commands::Output) => self.output(),
                 Some(Commands::LoopStart { index }) => (),
                 Some(Commands::LoopEnd { index }) => (),
                 _ => (),
             }
-            println!("{:?}", self.memory);
-            command_pointer += 1;
+            self.command_pointer += 1;
         }
     }
 
@@ -102,9 +111,39 @@ impl Interpreter {
         let value = self.memory[self.pointer];
         self.memory[self.pointer] = value.wrapping_sub(1)
     }
+
+    fn input(&mut self) {
+        let input_char = self.input.pop();
+        if input_char.is_some() {
+            let value = input_char.unwrap();
+            if value > 0 {
+                self.memory[self.pointer] = input_char.unwrap();
+            }
+        }
+    }
+
+    fn output(&mut self) {
+        let output_char = self.memory[self.pointer];
+        self.output.push(output_char)
+    }
+
+    fn loop_start(&mut self, index: usize) {
+        unimplemented!()
+    }
+
+    fn loop_end(&mut self, index: usize) {
+        unimplemented!()
+    }
+}
+
+fn ez_vec(s: &str) -> Vec<u8> {
+    let mut v = s.to_string().into_bytes();
+    v.push(0);
+    v
 }
 
 fn main() {
     let mut interpeter = Interpreter::new(10);
-    interpeter.run("+++++>>++++>>++<-", "");
+    interpeter.run(",>,>,>,>,<<<<.>.>.>.>.", ez_vec("HELLO"));
+    println!("{}", String::from_utf8(interpeter.get_output()).unwrap());
 }
